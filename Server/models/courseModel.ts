@@ -74,7 +74,6 @@ const commentSchema = new Schema<IComment>({
 
 const courseDataSchema = new Schema<ICourseData>({
   videoUrl: String,
-  videoThumbnail: Object,
   title: String,
   videoSection: String,
   description: String,
@@ -128,8 +127,8 @@ const courseSchema = new Schema<ICourse>({
   benefits: [{title: String}],
   prerequisites: [{title: String}],
   reviews: [reviewSchema],
-   courseData: [courseDataSchema],
-   ratings:{
+  courseData: [courseDataSchema],
+  ratings:{
      type: Number,
      default: 0,
    },
