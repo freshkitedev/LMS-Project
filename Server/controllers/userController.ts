@@ -133,13 +133,13 @@ const loginUser = CatchAsyncError(async(req:Request,res:Response,next:NextFuncti
 
     
     if(!user){
-      return next(new ErrorHandler("Invalid email or password",400))
+      return next(new ErrorHandler("Invalid Email",400))
     };
 
     const isPasswordMatch = await user.comparePassword(password);
 
     if(!isPasswordMatch){
-      return next(new ErrorHandler("Invalid Email or Password", 400))
+      return next(new ErrorHandler("Wrong Password", 400))
     };
 
     sendToken(user,200,res);

@@ -8,7 +8,7 @@ const redisClient = () => {
     }
     throw new Error("Redis connection failed");
 
-
+}
 // Create a new instance of Redis client
 export const redis = new Redis(redisClient());
 
