@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import userModel, { IUser } from "../models/userModel";
-import Jwt, { Secret } from "jsonwebtoken";
+import Jwt, { JwtPayload, Secret } from "jsonwebtoken";
 import ErrorHandler from "../utils/ErrorHandler";
 import { CatchAsyncError } from "../middleware/CatchAsyncErrors";
 import ejs from "ejs";
@@ -8,8 +8,9 @@ import path from "path";
 import sendMail from "../utils/sendMail";
 import { create } from "domain";
 require("dotenv").config();
-import { sendToken } from "../utils/jwt"
+import { accessTokenOptions, refreshTokenOptions, sendToken } from "../utils/jwt"
 import { redis } from "../utils/redis";
+import getUserById from "../services/user_services";
 
 //create new user
 interface ICreationBody {
@@ -170,6 +171,81 @@ const logoutUser = CatchAsyncError(async(req:Request, res:Response, next:NextFun
   }
 })
 
+  // Update Access Token
+const updateAccessToken = CatchAsyncError(async(req:Request, res:Response, next:NextFunction)=>{
+  try {
+    const refresh_token = req.cookies.refresh_token as string;
+    const decoded = Jwt.verify(refresh_token, process.env.REFRESH_TOKEN as string) as JwtPayload;
+    const message = "could not refresh token";
+
+    if(!decoded){
+      return next(new ErrorHandler(message,400));
+    }
+
+    const session = await redis.get(decoded.id as string);
+    
+    if(!session){
+      return next(new ErrorHandler(message, 400));
+    }
+
+    const user = JSON.parse(session);
+    const accessToken = Jwt.sign({id:user._id}, process.env.ACCESS_TOKEN as string,{
+      expiresIn:"5m",
+    });
+
+    const refreshToken = Jwt.sign({id:user._id},process.env.REFRESH_TOKEN as string,{
+      expiresIn: "3d",
+    });
+    
+    res.cookie("access_token" , accessToken, accessTokenOptions)
+    res.cookie("refresh_token" , refreshToken, refreshTokenOptions)
+
+    res.status(200).json({
+      status:"Success",
+      accessToken,
+    })
+
+  } catch (error:any) {
+    return next(new ErrorHandler(error.message, 400));
+  }
+})
+
+  // Get User info
+const getUserInfo = CatchAsyncError(async(req:Request, res:Response, next:NextFunction)=>{
+  
+  try {
+    const userId = req.user?._id;
+    getUserById(userId, res);
+  } catch (error:any) {
+    return next(new ErrorHandler(error.message, 400))
+  }
+})
+
+interface ISocialAuthBody{
+  name:string;
+  email:string;
+  avatar:string;
+}
+
+  // Social Auth
+const socialAuth = CatchAsyncError(async(req:Request, res:Response, next:NextFunction)=>{
+  try {
+    const { email, name, avatar } = req.body as ISocialAuthBody;
+    const user = await userModel.findOne({email});
+
+    if(!user){
+      const newUser = await userModel.create({email, name, avatar});
+      sendToken(newUser,200,res);
+    }
+    else{
+      sendToken(user,200,res);
+    }
+
+  } catch (error:any) {
+    return next(new ErrorHandler(error.message, 400));
+  }
+})
+
 
 const Activation = CatchAsyncError(ActivateUser);
-export { userRegistration, Activation, loginUser, logoutUser};
+export { userRegistration, Activation, loginUser, logoutUser, updateAccessToken, getUserInfo, socialAuth};
